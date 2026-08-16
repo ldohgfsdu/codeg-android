@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.codeg.android.R
+import app.codeg.android.agentconsole.permission.PermissionDigestCard
+import app.codeg.android.agentconsole.permission.PermissionSummarizer
 import app.codeg.android.core.designsystem.component.CodeBlock
 import app.codeg.android.core.designsystem.diff.DiffView
 import app.codeg.android.core.designsystem.markdown.MarkdownContent
@@ -56,6 +58,18 @@ fun PermissionRequestCard(
     val colors = CodegTheme.colors
     var submitting by remember(parsed.jsonPreview) { mutableStateOf<String?>(null) }
     val accent = colors.accent
+
+    // Agent Console overlay: shell-command permissions are digest-first.
+    // The raw command is folded behind 查看完整命令; risk/impact/summary lead.
+    if (!parsed.isPlan && parsed.command != null) {
+        PermissionDigestCard(
+            digest = PermissionSummarizer.summarize(parsed.command, parsed.cwd),
+            options = options,
+            onRespond = onRespond,
+            modifier = modifier,
+        )
+        return
+    }
 
     Column(
         modifier
@@ -97,7 +111,8 @@ fun PermissionRequestCard(
 
         // Body.
         val scrolls = parsed.diffFiles.isNotEmpty() || parsed.planMarkdown != null ||
-            parsed.planEntries.size > 4 || parsed.allowedPrompts.size > 4
+            parsed.planEntries.size > 4 || parsed.allowedPrompts.size > 4 ||
+            (parsed.command?.lines()?.size ?: 0) > 4 || parsed.jsonPreview.length > 400
         Column(
             modifier = if (scrolls) Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()) else Modifier,
             verticalArrangement = Arrangement.spacedBy(8.dp),
