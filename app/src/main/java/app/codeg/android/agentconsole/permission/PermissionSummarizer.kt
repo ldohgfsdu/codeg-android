@@ -119,7 +119,7 @@ object PermissionSummarizer {
             c.flags.runsTests -> CommandClass.TEST
             else -> c.classes.firstOrNull { it != CommandClass.SHELL } ?: CommandClass.SHELL
         }
-        val summary = when (primary) {
+        val summary = if (primary == CommandClass.GIT) gitSummary(c) else when (primary) {
             CommandClass.READ_ONLY -> "查看文件内容"
             CommandClass.FILE_WRITE -> "修改文件"
             CommandClass.FILE_DELETE -> "删除文件"
@@ -141,5 +141,19 @@ object PermissionSummarizer {
             rawCommand = raw,
             confident = true,
         )
+    }
+
+    /** Git summary names the concrete operation and flags destructive forms. */
+    private fun gitSummary(c: CommandClassification): String {
+        val ga = c.gitAssessment ?: return "Git 操作（需要审查）"
+        if (!ga.confident) return "Git 操作（需要审查）"
+        return when (ga.opClass) {
+            GitOpClass.READ_ONLY -> "查看 Git 状态（${ga.operation}）"
+            GitOpClass.LOCAL_MUTATE -> "修改 Git 状态（${ga.operation}）"
+            GitOpClass.LOCAL_DESTRUCTIVE -> "破坏性 Git 操作（${ga.operation}）"
+            GitOpClass.REMOTE_WRITE -> "推送 Git 更改（${ga.operation}）"
+            GitOpClass.REMOTE_DESTRUCTIVE -> "破坏性远端 Git 操作（${ga.operation}）"
+            GitOpClass.UNKNOWN -> "Git 操作（需要审查）"
+        }
     }
 }

@@ -204,7 +204,10 @@ private fun titleFor(digest: PermissionDigest): String = when (digest.commandCla
     CommandClass.FILE_DELETE -> "请求删除文件"
     CommandClass.NETWORK -> "请求网络访问"
     CommandClass.PACKAGE_INSTALL -> "请求安装软件包"
-    CommandClass.GIT -> "请求 Git 操作"
+    CommandClass.GIT -> when (digest.riskLevel) {
+        RiskLevel.HIGH, RiskLevel.BLOCKED -> "请求破坏性 Git 操作"
+        else -> "请求 Git 操作"
+    }
     CommandClass.BUILD -> "请求构建"
     CommandClass.TEST -> "请求运行测试"
     CommandClass.REPRODUCIBILITY_TEST -> "请求运行隔离构建测试"

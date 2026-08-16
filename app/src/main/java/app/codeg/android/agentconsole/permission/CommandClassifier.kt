@@ -55,6 +55,7 @@ object CommandClassifier {
         var runsTests = false
         var installsPackages = false
         var createsDirectories = false
+        var gitAssessment: GitAssessment? = null
         var understood = 0
         var total = 0
 
@@ -116,8 +117,16 @@ object CommandClassifier {
             }
             if (GIT_CMD.containsMatchIn(s)) {
                 classes += CommandClass.GIT
+                val ga = GitClassifier.assess(s)
+                gitAssessment = worstGit(gitAssessment, ga)
+                if (!ga.confident) {
+                    // Unresolvable git form (unknown subcommand / alias / variable
+                    // expansion): the whole classification is not confident.
+                    segKnown = false
+                } else {
+                    segKnown = true
+                }
                 if (Regex("""git\s+(clone|fetch|pull|push|submodule)""").containsMatchIn(s)) networkAccess = true
-                segKnown = true
             }
             if (PACKAGE_CMD.containsMatchIn(s)) {
                 classes += CommandClass.PACKAGE_INSTALL
@@ -200,12 +209,27 @@ object CommandClassifier {
             keyPaths = keyPaths.distinct(),
             deleteTargets = deleteTargets.distinct(),
             exclusions = exclusions.distinct(),
+            gitAssessment = gitAssessment,
             confident = confident,
         )
     }
 
     private fun isBuildCmd(classes: Set<CommandClass>): Boolean =
         CommandClass.BUILD in classes || CommandClass.TEST in classes
+
+    /** Keep the most dangerous git assessment across multiple git segments. */
+    private fun worstGit(a: GitAssessment?, b: GitAssessment): GitAssessment {
+        if (a == null) return b
+        val rank = mapOf(
+            GitOpClass.READ_ONLY to 0,
+            GitOpClass.LOCAL_MUTATE to 1,
+            GitOpClass.REMOTE_WRITE to 1,
+            GitOpClass.LOCAL_DESTRUCTIVE to 2,
+            GitOpClass.REMOTE_DESTRUCTIVE to 2,
+            GitOpClass.UNKNOWN to 3,
+        )
+        return if (rank.getValue(b.opClass) >= rank.getValue(a.opClass)) b else a
+    }
 
     /** True when the segment writes to a real file (excludes `2>&1` style fd redirects). */
     private fun hasWriteRedirection(segment: String): Boolean =

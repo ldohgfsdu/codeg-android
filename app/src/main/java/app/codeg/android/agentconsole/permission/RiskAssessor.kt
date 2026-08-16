@@ -48,7 +48,23 @@ object RiskAssessor {
             if (flags.networkAccess && CREDENTIAL_PATH.containsMatchIn(commandText)) return RiskLevel.HIGH
         }
 
-        // 3. Network exfil: curl/wget with data/upload flags.
+        // 3. Git risk derives from the concrete operation + arguments, never the
+        // bare command name (P0 corrective). Placed before the network check so
+        // push --force is HIGH even though push is also a network op.
+        if (CommandClass.GIT in classification.classes) {
+            val ga = classification.gitAssessment
+            if (ga == null || !ga.confident) return RiskLevel.UNKNOWN
+            return when (ga.opClass) {
+                GitOpClass.READ_ONLY -> RiskLevel.LOW
+                GitOpClass.LOCAL_MUTATE -> RiskLevel.MEDIUM
+                GitOpClass.LOCAL_DESTRUCTIVE -> RiskLevel.HIGH
+                GitOpClass.REMOTE_WRITE -> RiskLevel.MEDIUM
+                GitOpClass.REMOTE_DESTRUCTIVE -> RiskLevel.HIGH
+                GitOpClass.UNKNOWN -> RiskLevel.UNKNOWN
+            }
+        }
+
+        // 4. Network exfil: curl/wget with data/upload flags.
         if (flags.networkAccess && Regex("""curl\s+.*(-d|--data|-F|--form|--upload-file)""").containsMatchIn(commandText)) {
             return RiskLevel.HIGH
         }
@@ -67,7 +83,7 @@ object RiskAssessor {
 
         if (flags.networkAccess) return RiskLevel.MEDIUM
 
-        if (classification.classes.all { it == CommandClass.READ_ONLY || it == CommandClass.GIT }) {
+        if (classification.classes.all { it == CommandClass.READ_ONLY }) {
             return RiskLevel.LOW
         }
 

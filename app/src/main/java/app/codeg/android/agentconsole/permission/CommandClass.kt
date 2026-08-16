@@ -40,6 +40,8 @@ data class CommandClassification(
     val deleteTargets: List<String>,
     /** Explicitly excluded / avoided items (e.g. global gradle.properties). */
     val exclusions: List<String>,
+    /** Git operation assessment when a git command was present; null otherwise. */
+    val gitAssessment: GitAssessment? = null,
     /** False when parsing could not confidently identify the command shape. */
     val confident: Boolean,
 ) {
